@@ -220,7 +220,12 @@ class NamespaceHandler:
             if channel_payload[key_channel] == channel:
                 break
         else:
-            polling_request_channels.append({key_channel: channel} | extra)
+            channel_payload = {key_channel: channel}
+            polling_request_channels.append(channel_payload)
+
+        if extra:
+            channel_payload.update(extra)
+
         self.polling_response_size = (
             self.polling_response_base_size
             + len(polling_request_channels) * self.polling_response_item_size
