@@ -188,13 +188,6 @@ CONF_PROFILE_ID_LOCAL: Final = ""
 """label for ComponentApi as a 'fake' cloud profile"""
 
 #
-# some common entitykeys
-#
-DND_ID: Final = "dnd"
-SIGNALSTRENGTH_ID: Final = "signal_strength"
-CONSUMPTIONX_SENSOR_KEY: Final = "energy"
-ELECTRICITY_SENSOR_KEY: Final = "energy_estimate"
-#
 # issues general consts
 #
 ISSUE_CLOUD_TOKEN_EXPIRED = "cloud_token_expired"

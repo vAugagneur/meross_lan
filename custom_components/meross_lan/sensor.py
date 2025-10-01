@@ -374,6 +374,8 @@ class MLSignalStrengthSensor(EntityNamespaceMixin, MLNumericSensor):
 
     ns = mn.Appliance_System_Runtime
 
+    ENTITY_KEY = "signal_strength"
+
     # HA core entity attributes:
     entity_category = MLNumericSensor.EntityCategory.DIAGNOSTIC
     icon = "mdi:wifi"
@@ -382,7 +384,7 @@ class MLSignalStrengthSensor(EntityNamespaceMixin, MLNumericSensor):
         super().__init__(
             manager,
             None,
-            mlc.SIGNALSTRENGTH_ID,
+            MLSignalStrengthSensor.ENTITY_KEY,
             None,
             native_unit_of_measurement=me.MLEntity.hac.PERCENTAGE,
         )

@@ -866,13 +866,15 @@ class MLDNDLightEntity(EntityNamespaceMixin, me.MLBinaryEntity, light.LightEntit
 
     ns = mn.Appliance_System_DNDMode
 
+    ENTITY_KEY = "dnd"
+
     # HA core entity attributes:
     color_mode: ColorMode = ColorMode.ONOFF
     entity_category = me.MLBinaryEntity.EntityCategory.CONFIG
     supported_color_modes: set[ColorMode] = {ColorMode.ONOFF}
 
     def __init__(self, manager: "Device"):
-        super().__init__(manager, None, mlc.DND_ID, mc.KEY_DNDMODE)
+        super().__init__(manager, None, MLDNDLightEntity.ENTITY_KEY, mc.KEY_DNDMODE)
         EntityNamespaceHandler(self)
 
     async def async_turn_on(self, **kwargs):
