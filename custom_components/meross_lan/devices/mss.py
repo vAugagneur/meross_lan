@@ -308,7 +308,7 @@ class ElectricityXNamespaceHandler(NamespaceHandler):
             mn.Appliance_Control_ElectricityX,
         )
         # Current approach is to build a sensor for any appearing channel index
-        # in digest. This in turns will not directly build the EM06 sensors
+        # in digest. This in turn will not directly build the EM06 sensors
         # but they should come when polling.
         self.register_entity_class(ElectricityXSensor, build_from_digest=True)
 

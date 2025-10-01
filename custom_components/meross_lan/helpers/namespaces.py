@@ -197,7 +197,7 @@ class NamespaceHandler:
                 mc.METHOD_GET,
                 (
                     {ns.key: {mc.KEY_CHANNEL: 65535}}
-                    if self.device.is_refoss and (not request_payload_type)
+                    if self.device.descriptor.is_refoss and (not request_payload_type)
                     else {ns.key: self.polling_request_channels}
                 ),
             )

@@ -253,7 +253,6 @@ class Device(BaseDevice, ConfigEntryManager):
         or simply crashes/hangs the device."""
 
         descriptor: Final[MerossDeviceDescriptor]
-        is_refoss: Final[bool]
         tz: tzinfo
 
         # these are set from ConfigEntry
@@ -407,7 +406,6 @@ class Device(BaseDevice, ConfigEntryManager):
 
     __slots__ = (
         "descriptor",
-        "is_refoss",
         "tz",
         "polling_period",
         "_polling_delay",
@@ -466,7 +464,6 @@ class Device(BaseDevice, ConfigEntryManager):
         descriptor: "MerossDeviceDescriptor",
     ):
         self.descriptor = descriptor
-        self.is_refoss = descriptor.is_refoss
         self.tz = UTC
         self.needsave = False
         self._async_entry_update_unsub = None
