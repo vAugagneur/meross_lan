@@ -201,6 +201,12 @@ class NamespaceHandler:
                     else {ns.key: self.polling_request_channels}
                 ),
             )
+        elif _request_payload_type is mn.PayloadType.LIST_SX:
+            self.polling_request = (
+                ns.name,
+                mc.METHOD_GET,
+                {ns.key: self.polling_request_channels},
+            )
         elif _request_payload_type is ns.request_payload_type:
             # we'll reuse the default in the ns definition
             self.polling_request = ns.request_default
