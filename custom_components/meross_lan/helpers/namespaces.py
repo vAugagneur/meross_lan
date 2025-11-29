@@ -110,6 +110,7 @@ class NamespaceHandler:
 
     if TYPE_CHECKING:
         parsers: dict[object, Callable[[dict], None]]
+        lastpush: dict | None
         polling_strategy: PollingStrategyFunc | None
         polling_request_channels: list[dict[str, Any]]
 
@@ -121,6 +122,7 @@ class NamespaceHandler:
         "entity_class",
         "lastrequest",
         "lastresponse",
+        "lastpush",
         "polling_epoch_next",
         "polling_strategy",
         "polling_period",
@@ -150,12 +152,13 @@ class NamespaceHandler:
         )
         self.device = device
         self.ns = ns
-        self.lastresponse = self.lastrequest = self.polling_epoch_next = 0.0
-        self.parsers = {}
-        self.entity_class = None
         self.handler = handler or getattr(
             device, f"_handle_{namespace.replace('.', '_')}", self._handle_undefined
         )
+        self.parsers = {}
+        self.entity_class = None
+        self.lastresponse = self.lastrequest = self.polling_epoch_next = 0.0
+        self.lastpush = None
 
         if _conf := config or POLLING_STRATEGY_CONF.get(ns):
             self.polling_period = _conf[0]
@@ -604,10 +607,16 @@ class NamespaceHandler:
         or data which are not 'critical'. For those namespaces, polling_period
         is considered the maximum amount of time after which the poll 'has' to
         be done. If it hasn't elapsed then they're eventually packed
-        with the outgoing ns_multiple (lazy polling)
+        with the outgoing ns_multiple (lazy polling).
+        This strategy also avoids polling when MQTT is active if the namespace
+        supports PUSH or we have received at least one PUSH for it (lastpush).
         """
         device = self.device
-        if device._mqtt_active and self.polling_epoch_next and self.ns.has_push:
+        if (
+            device._mqtt_active
+            and self.polling_epoch_next
+            and (self.ns.has_push or self.lastpush)
+        ):
             # on MQTT no need for updates since they're being PUSHed
             return
 
@@ -640,6 +649,14 @@ class NamespaceHandler:
         for the namespace polling has not been found in POLLING_STRATEGY_CONF
         """
         device = self.device
+        if (
+            device._mqtt_active
+            and self.polling_epoch_next
+            and (self.ns.has_push or self.lastpush)
+        ):
+            # on MQTT no need for updates since they're being PUSHed
+            return
+
         if device._polling_epoch >= self.polling_epoch_next:
             await device.async_request_smartpoll(self)
 

@@ -52,7 +52,7 @@ CONF_TRACE_MAXSIZE: Final = 262144  # or when MAXSIZE exceeded
 # folder where to store traces
 CONF_TRACE_DIRECTORY: Final = "traces"
 # versioning
-CONF_TRACE_VERSION: Final = 2
+CONF_TRACE_VERSION: Final = 3
 CONF_TRACE_COLUMNS: Final = ["time", "rxtx", "protocol", "method", "namespace", "data"]
 if TYPE_CHECKING:
 
