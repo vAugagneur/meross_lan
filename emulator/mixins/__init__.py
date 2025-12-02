@@ -8,6 +8,7 @@ import typing
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
+from aiohttp import payload
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from custom_components.meross_lan import const as mlc
@@ -121,17 +122,7 @@ class MerossEmulatorDescriptor(MerossDeviceDescriptor):
                     columns = row
                     row = next(f).split("\t")
                     # first data row contains an 'HEADER' i.e. 'diagnostic like' dict
-                    _header: "mlc.TracingHeaderType" = json_loads(row[-1])
-                    version = _header["version"]
-                    config_payload = _header["config"]["payload"]
-                    ns = mn.Appliance_System_All
-                    self.namespaces[ns.name] = {ns.key: config_payload[ns.key]}
-                    ns = mn.Appliance_System_Ability
-                    self.namespaces[ns.name] = {ns.key: config_payload[ns.key]}
-                    for namespace, payload in _header["state"][
-                        "namespace_pushes"
-                    ].items():
-                        self.namespaces[namespace] = payload
+                    version = self._import_config(json_loads(row[-1]))
 
         for line in f:
             row = line.split("\t")
@@ -149,37 +140,14 @@ class MerossEmulatorDescriptor(MerossDeviceDescriptor):
         try:
             _data: dict = json_loads(f.read())["data"]
 
-            try:
-                version = _data["version"]
-            except KeyError:
-                version = 1
+            version = self._import_config(_data)
 
-            match version:
-                case 2:
-                    config_payload = _data["config"]["payload"]
-                    pushes = _data["state"]["namespace_pushes"]
-                    rows = iter(_data["trace"])
-                    columns = next(rows)
-                case 1:
-                    config_payload = _data["payload"]
-                    try:
-                        pushes = _data["device"]["namespace_pushes"]
-                    except KeyError:
-                        # earlier versions missing pushes
-                        pushes = {}
-                    rows = iter(_data["trace"])
-                    columns = next(rows)
-                    # mandatory All and Ability stored in the first 2 rows
-                    # now loaded from _config before parsing trace rows
-                    next(rows)
-                    next(rows)
+            rows = iter(_data["trace"])
+            columns = next(rows)
 
-            ns = mn.Appliance_System_All
-            self.namespaces[ns.name] = {ns.key: config_payload[ns.key]}
-            ns = mn.Appliance_System_Ability
-            self.namespaces[ns.name] = {ns.key: config_payload[ns.key]}
-            for namespace, payload in pushes.items():
-                self.namespaces[namespace] = payload
+            if version == 1:
+                next(rows)  # skip All
+                next(rows)  # skip Ability
 
             for row in rows:
                 if row[2] == "auto":
@@ -190,6 +158,41 @@ class MerossEmulatorDescriptor(MerossDeviceDescriptor):
             raise
 
         return
+
+    def _import_config(self, header: "mlc.TracingHeaderType | dict"):
+        try:
+            version = header["version"]
+        except KeyError:
+            version = 1
+
+        match version:
+            case 3:
+                config_payload = header["config"]["payload"]
+                pushes = {
+                    namespace: handler_state["lastpush"]
+                    for namespace, handler_state in header["state"][
+                        "namespace_handlers"
+                    ].items()
+                    if handler_state["lastpush"]
+                }
+            case 2:
+                config_payload = header["config"]["payload"]
+                pushes = header["state"]["namespace_pushes"]
+            case 1:
+                config_payload = header["payload"]  # type: ignore
+                try:
+                    pushes = header["device"]["namespace_pushes"]  # type: ignore
+                except KeyError:
+                    # earlier versions missing pushes
+                    pushes = {}
+
+        for ns in (mn.Appliance_System_All, mn.Appliance_System_Ability):
+            self.namespaces[ns.name] = {ns.key: config_payload[ns.key]}
+
+        for namespace, payload in pushes.items():
+            self.namespaces[namespace] = payload
+
+        return version
 
     def _import_tracerow(
         self,

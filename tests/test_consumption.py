@@ -94,13 +94,13 @@ async def _async_configure_context(context: "DeviceContext", timezone: str):
     assert powerstate
     assert float(powerstate.state) == TEST_POWER
 
-    sensor_consumption = device.entities[mlc.CONSUMPTIONX_SENSOR_KEY]
+    sensor_consumption = device.entities[ConsumptionXSensor.ENTITY_KEY]
     assert isinstance(sensor_consumption, ConsumptionXSensor)
     consumptionstate = states.get(sensor_consumption.entity_id)
     assert consumptionstate
     assert int(consumptionstate.state) == 0
 
-    sensor_electricity = device.entities[mlc.ELECTRICITY_SENSOR_KEY]
+    sensor_electricity = device.entities[ElectricitySensor.ENTITY_KEY]
     assert isinstance(sensor_electricity, ElectricitySensor)
     # energy_estimate is disabled by default
     assert states.get(sensor_electricity.entity_id) is None
@@ -301,9 +301,9 @@ async def test_consumption_with_reload(request, hass: "HomeAssistant"):
 
         device = await context.async_enable_entity(sensor_estimate_entity_id)
         # 'async_enable_entity' will invalidate our references
-        sensor_consumption = device.entities[mlc.CONSUMPTIONX_SENSOR_KEY]
+        sensor_consumption = device.entities[ConsumptionXSensor.ENTITY_KEY]
         assert isinstance(sensor_consumption, ConsumptionXSensor)
-        sensor_electricity = device.entities[mlc.ELECTRICITY_SENSOR_KEY]
+        sensor_electricity = device.entities[ElectricitySensor.ENTITY_KEY]
         assert isinstance(sensor_electricity, ElectricitySensor)
 
         def _check_energy_states(power, duration, msg):
@@ -344,9 +344,9 @@ async def test_consumption_with_reload(request, hass: "HomeAssistant"):
 
             assert await context.async_setup()
             device = context.device
-            sensor_consumption = device.entities[mlc.CONSUMPTIONX_SENSOR_KEY]
+            sensor_consumption = device.entities[ConsumptionXSensor.ENTITY_KEY]
             assert isinstance(sensor_consumption, ConsumptionXSensor)
-            sensor_electricity = device.entities[mlc.ELECTRICITY_SENSOR_KEY]
+            sensor_electricity = device.entities[ElectricitySensor.ENTITY_KEY]
             assert isinstance(sensor_electricity, ElectricitySensor)
 
             # sensor states should have been restored

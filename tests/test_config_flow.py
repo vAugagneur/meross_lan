@@ -322,7 +322,7 @@ async def test_dhcp_discovery_config_flow(hass: "HomeAssistant"):
         DhcpServiceInfo(
             tc.MOCK_DEVICE_IP,
             "",
-            tc.MOCK_MACADDRESS,
+            fmt_macaddress(tc.MOCK_MACADDRESS),
         ),
     )
     assert result, "Dhcp discovery didn't create the discovery flow"
@@ -336,7 +336,7 @@ async def test_dhcp_ignore_config_flow(hass: "HomeAssistant"):
     dhcp_service_info = DhcpServiceInfo(
         tc.MOCK_DEVICE_IP,
         "",
-        tc.MOCK_MACADDRESS,
+        fmt_macaddress(tc.MOCK_MACADDRESS),
     )
     # create the initial discovery
     result = await _create_dhcp_discovery_flow(hass, dhcp_service_info)
@@ -419,7 +419,9 @@ async def test_dhcp_renewal_config_flow(request, hass: "HomeAssistant", aioclien
             result = await flow.async_init(
                 mlc.DOMAIN,
                 context={"source": config_entries.SOURCE_DHCP},
-                data=DhcpServiceInfo(DHCP_GOOD_HOST, "", device_macaddress),
+                data=DhcpServiceInfo(
+                    DHCP_GOOD_HOST, "", fmt_macaddress(device_macaddress)
+                ),
             )
 
             assert result["type"] == FlowResultType.ABORT  # type: ignore
@@ -447,7 +449,9 @@ async def test_dhcp_renewal_config_flow(request, hass: "HomeAssistant", aioclien
             result = await flow.async_init(
                 mlc.DOMAIN,
                 context={"source": config_entries.SOURCE_DHCP},
-                data=DhcpServiceInfo(DHCP_BOGUS_HOST, "", device_macaddress),
+                data=DhcpServiceInfo(
+                    DHCP_BOGUS_HOST, "", fmt_macaddress(device_macaddress)
+                ),
             )
 
             assert result["type"] == FlowResultType.ABORT  # type: ignore
@@ -458,7 +462,7 @@ async def test_dhcp_renewal_config_flow(request, hass: "HomeAssistant", aioclien
             device_context.assert_logs(
                 1,
                 message=(
-                    r"received a DHCP update \(ip:99\.99\.99\.99 mac:00:11:22:33:44:55\) "
+                    r"received a DHCP update \(ip:99\.99\.99\.99 mac:001122334455\) "
                     r"but the new uuid:\S* doesn't match "
                     r"the configured one \(uuid:\S*\)"
                 ),
