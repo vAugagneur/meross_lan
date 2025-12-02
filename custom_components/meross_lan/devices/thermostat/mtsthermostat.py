@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, override
 
 from ...binary_sensor import MLBinarySensor
-from ...climate import MtsClimate, MtsTemperatureNumber
+from ...climate import MtsClimate
 from ...helpers.entity import MEListChannelMixin
 from ...helpers.namespaces import POLLING_STRATEGY_CONF, NamespaceHandler, mc, mlc, mn
 from ...merossclient.protocol.namespaces import thermostat as mn_t
@@ -76,7 +76,7 @@ class MtsConfigSwitch(MEListChannelMixin, MLSwitch):
                 number_temperature.flush_state()
 
 
-class MtsCommonTemperatureNumber(MtsTemperatureNumber):
+class MtsCommonTemperatureNumber(MLConfigNumber):
 
     if TYPE_CHECKING:
         manager: Device
@@ -93,16 +93,23 @@ class MtsCommonTemperatureNumber(MtsTemperatureNumber):
     def __init__(
         self,
         climate: "MtsThermostatClimate",
-        **kwargs: "Unpack[MtsCommonTemperatureNumber.Args]",
+        device_class: MLConfigNumber.DeviceClass = MLConfigNumber.DeviceClass.TEMPERATURE,
     ):
-        super().__init__(climate, self.__class__.ns.slug, **kwargs)
+        super().__init__(
+            climate.manager,
+            climate.channel,
+            self.__class__.ns.slug,
+            device_class,
+            device_scale=climate.device_scale,
+        )
         self.manager.register_parser_entity(self)
 
     def _parse(self, payload: "mt_t.CommonTemperature_C"):
-        if mc.KEY_MAX in payload:
+        try:
             self.native_max_value = payload[mc.KEY_MAX] / self.device_scale
-        if mc.KEY_MIN in payload:
             self.native_min_value = payload[mc.KEY_MIN] / self.device_scale
+        except KeyError as e:
+            self.log_exception(self.DEBUG, e, "_parse", timeout=14400)
         self.update_device_value(payload[self.key_value])
 
 
@@ -120,9 +127,8 @@ class MtsCommonTemperatureExtNumber(MtsCommonTemperatureNumber):
     def __init__(
         self,
         climate: "MtsThermostatClimate",
-        **kwargs: "Unpack[MtsCommonTemperatureExtNumber.Args]",
     ):
-        super().__init__(climate, **kwargs)
+        MtsCommonTemperatureNumber.__init__(self, climate)
         manager = self.manager
         # preset entity platforms since these might be instantiated later
         manager.platforms.setdefault(MtsConfigSwitch.PLATFORM)
@@ -166,7 +172,7 @@ class MtsDeadZoneNumber(MtsCommonTemperatureNumber):
         self.native_max_value = 3.5
         self.native_min_value = 0.5
         self.native_step = 0.1
-        super().__init__(climate)
+        super().__init__(climate, MLConfigNumber.DEVICE_CLASS_TEMPERATURE_DELTA)
 
 
 class MtsFrostNumber(MtsCommonTemperatureExtNumber):
@@ -177,7 +183,7 @@ class MtsFrostNumber(MtsCommonTemperatureExtNumber):
         self.native_max_value = 15
         self.native_min_value = 5
         self.native_step = climate.target_temperature_step
-        super().__init__(climate)
+        MtsCommonTemperatureExtNumber.__init__(self, climate)
 
 
 class MtsOverheatNumber(MtsCommonTemperatureExtNumber):
@@ -190,20 +196,26 @@ class MtsOverheatNumber(MtsCommonTemperatureExtNumber):
         self.native_max_value = 70
         self.native_min_value = 20
         self.native_step = climate.target_temperature_step
-        super().__init__(climate, name="Overheat threshold")
-        self.sensor_external_temperature = MLTemperatureSensor(
-            self.manager, self.channel, "external sensor"
-        )
+        MtsCommonTemperatureExtNumber.__init__(self, climate)
 
     async def async_shutdown(self):
+        await super().async_shutdown()
         self.sensor_external_temperature: MLTemperatureSensor = None  # type: ignore
-        return await super().async_shutdown()
 
     def _parse(self, payload: "mt_t.Overheat_C"):
         if mc.KEY_CURRENTTEMP in payload:
-            self.sensor_external_temperature.update_native_value(
-                payload[mc.KEY_CURRENTTEMP] / self.device_scale
-            )
+            try:
+                self.sensor_external_temperature.update_device_value(
+                    payload[mc.KEY_CURRENTTEMP]
+                )
+            except AttributeError:
+                self.sensor_external_temperature = MLTemperatureSensor(
+                    self.manager,
+                    self.channel,
+                    "external sensor",
+                    device_value=payload[mc.KEY_CURRENTTEMP],
+                    device_scale=self.device_scale,
+                )
         super()._parse(payload)
 
 
@@ -405,7 +417,7 @@ class MtsThermostatClimate(MtsClimate):
             self.native_max_value = 8
             self.native_min_value = -8
             self.native_step = 0.1
-            super().__init__(climate)
+            super().__init__(climate, MLConfigNumber.DEVICE_CLASS_TEMPERATURE_DELTA)
 
     def __init__(self, manager: "Device", channel):
         super().__init__(manager, channel)
