@@ -233,7 +233,7 @@ async def test_meross_profile_with_device(
         assert device.update_firmware is None
         tc.MOCK_CLOUDAPI_DEVICE_LATESTVERSION[0][mc.KEY_VERSION] = "2.1.5"
         await device_context.time_mock.async_tick(
-            mlc.PARAM_CLOUDPROFILE_QUERY_LATESTVERSION_TIMEOUT
+            mlc.PARAM_CLOUDPROFILE_QUERY_LATESTVERSION_TIMEOUT + 1
         )
         update_firmware = device.update_firmware
         assert update_firmware

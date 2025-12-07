@@ -8,7 +8,6 @@ import typing
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
-from aiohttp import payload
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from custom_components.meross_lan import const as mlc
