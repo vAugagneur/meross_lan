@@ -229,8 +229,6 @@ class MerossHttpClient:
                 )
             self._check_terminated()
             return MerossResponse(response)
-        except TerminatedException:
-            raise
         except Exception as e:
             self._key_header = {}  # type: ignore
             if logger:
@@ -277,7 +275,7 @@ class MerossHttpClient:
             req_header[mc.KEY_SIGN] = resp_header[mc.KEY_SIGN]
             try:
                 response = await self.async_request_raw(JSON_ENCODER.encode(request))
-            except TerminatedException:
+            except (TerminatedException, asyncio.CancelledError):
                 raise
             except Exception:
                 # any error here is likely consequence of key-reply hack
