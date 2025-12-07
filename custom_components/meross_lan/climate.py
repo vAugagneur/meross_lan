@@ -141,7 +141,6 @@ class MtsClimate(me.MLEntity, climate.ClimateEntity):
         "_mts_mode",
         "_mts_onoff",
         "_mts_payload",
-        "_core_config_update_unsub",
         "number_adjust_temperature",
         "number_preset_temperature",
         "schedule",
@@ -161,17 +160,7 @@ class MtsClimate(me.MLEntity, climate.ClimateEntity):
         self.preset_modes = self._attr_preset_modes
         self.supported_features = self._attr_supported_features
         self.target_temperature = None
-        # We need to implement this patch since HA doesn't 'convert' this to
-        # °F when the system is configured so...this is likely due to the nature of °F
-        # which have an offset to 0°C and so, converting a temperature delta should be done
-        # differently (then the actual unit converters). TBH this should be resolved in
-        # HA core but right now we'll patch this until better times ..
-        self.target_temperature_step = (
-            1
-            if manager.hass.config.units.temperature_unit
-            == self.hac.UnitOfTemperature.FAHRENHEIT
-            else 0.5
-        )
+        self.target_temperature_step = 0.5
         self.temperature_unit = self.hac.UnitOfTemperature.CELSIUS
         self._mts_active = None
         self._mts_mode = None
@@ -191,15 +180,8 @@ class MtsClimate(me.MLEntity, climate.ClimateEntity):
         self.sensor_current_temperature = MLTemperatureSensor(manager, channel)
         self.sensor_current_temperature.entity_registry_enabled_default = False
 
-        self._core_config_update_unsub = manager.hass.bus.async_listen(
-            self.hac.EVENT_CORE_CONFIG_UPDATE, self._async_core_config_update
-        )
-
     # interface: MLEntity
     async def async_shutdown(self):
-        if self._core_config_update_unsub:
-            self._core_config_update_unsub()
-            self._core_config_update_unsub = None
         await super().async_shutdown()
         self.sensor_current_temperature = None  # type: ignore
         self.select_tracked_sensor = None  # type: ignore
@@ -279,15 +261,6 @@ class MtsClimate(me.MLEntity, climate.ClimateEntity):
             except:
                 # in case the ns is not available for this device
                 pass
-
-    async def _async_core_config_update(self, _event) -> None:
-        self.target_temperature_step = (
-            1
-            if self.manager.hass.config.units.temperature_unit
-            == self.hac.UnitOfTemperature.FAHRENHEIT
-            else 0.5
-        )
-        self.flush_state()
 
 
 class MtsSetPointNumber(MLConfigNumber):
