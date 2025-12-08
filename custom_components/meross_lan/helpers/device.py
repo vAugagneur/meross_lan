@@ -1682,9 +1682,9 @@ class Device(BaseDevice, ConfigEntryManager):
         return self._polling_task
 
     async def _async_poll(self, namespace: str | None):
+        self._polling_epoch = epoch = time()
+        self.log(self.DEBUG, "Polling begin")
         try:
-            self._polling_epoch = epoch = time()
-            self.log(self.DEBUG, "Polling begin")
             # We're 'strictly' online when the device 'was' online and last request
             # got succesfully replied.
             # When last request(s) somewhat failed we'll probe NS_ALL before stating it is really
@@ -1847,19 +1847,16 @@ class Device(BaseDevice, ConfigEntryManager):
 
         except asyncio.CancelledError:
             self.log(self.DEBUG, "Polling cancelled")
+            raise
         except Exception as e:
-            self._polling_unsub = self.schedule_callback(
-                self._polling_delay, self._poll, None
-            )
             self.log_exception(self.WARNING, e, "_async_poll")
-            self.log(self.DEBUG, "Polling end")
-        else:
-            self._polling_unsub = self.schedule_callback(
-                self._polling_delay, self._poll, None
-            )
-            self.log(self.DEBUG, "Polling end")
         finally:
             self._polling_task = None
+
+        self._polling_unsub = self.schedule_callback(
+            self._polling_delay, self._poll, None
+        )
+        self.log(self.DEBUG, "Polling end")
 
     async def async_poll_stop(self):
         """Ensure we're not polling nor any schedule is in place."""
@@ -1868,7 +1865,10 @@ class Device(BaseDevice, ConfigEntryManager):
             self._polling_unsub = None
         elif self._polling_task:
             self._polling_task.cancel()
-            await self._polling_task
+            try:
+                await self._polling_task
+            except asyncio.CancelledError:
+                pass
 
     async def async_poll_full(self):
         """Stops an ongoing poll if any and executes a full poll (like when onlining)."""
