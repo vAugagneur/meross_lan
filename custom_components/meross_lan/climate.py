@@ -63,9 +63,9 @@ class MtsClimate(me.MLEntity, climate.ClimateEntity):
         schedule: Final[MtsSchedule]
         select_tracked_sensor: Final[MtsTrackedSensor]
         sensor_current_temperature: Final[MLTemperatureSensor]
-        _mts_active: bool | None
-        _mts_mode: int | None
-        _mts_onoff: int | None
+        _mts_active: bool
+        _mts_mode: int
+        _mts_onoff: int
         _mts_payload: dict
 
         # HA core entity attributes override:
@@ -162,9 +162,9 @@ class MtsClimate(me.MLEntity, climate.ClimateEntity):
         self.target_temperature = None
         self.target_temperature_step = 0.5
         self.temperature_unit = self.hac.UnitOfTemperature.CELSIUS
-        self._mts_active = None
-        self._mts_mode = None
-        self._mts_onoff = None
+        self._mts_active = False
+        self._mts_mode = 0
+        self._mts_onoff = 0
         self._mts_payload = {}
         super().__init__(manager, channel)
         self.number_adjust_temperature = self.__class__.AdjustNumber(self)  # type: ignore
@@ -190,9 +190,6 @@ class MtsClimate(me.MLEntity, climate.ClimateEntity):
         self.number_preset_temperature = None  # type: ignore
 
     def set_unavailable(self):
-        self._mts_active = None
-        self._mts_mode = None
-        self._mts_onoff = None
         self._mts_payload.clear()
         self.current_humidity = None
         self.current_temperature = None

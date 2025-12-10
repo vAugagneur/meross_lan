@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from typing import Any, Callable, Final, Iterable, Mapping
 
     from protocol.message import MerossResponse
-    from protocol.types import MerossPayloadType, MerossRequestType
+    from protocol.types import ChannelPayload, MerossPayloadType, MerossRequestType
 
 try:
     from random import randint
@@ -89,7 +89,7 @@ def json_loads(s: str):
 #
 # General purpose utilities for payload handling
 #
-def get_element_by_key(payload: list[dict], key: str, value) -> dict:
+def get_element_by_key[_T: dict](payload: list[_T], key: str, value) -> _T:
     """
     scans the payload(list) looking for the first item matching
     the key value. Usually looking for the matching channel payload
@@ -103,7 +103,7 @@ def get_element_by_key(payload: list[dict], key: str, value) -> dict:
     )
 
 
-def get_element_by_key_safe(payload: list[dict], key: str, value) -> dict | None:
+def get_element_by_key_safe[_T: dict](payload: list[_T], key: str, value) -> _T | None:
     """
     scans the payload (expecting a list) looking for the first item matching
     the key value. Usually looking for the matching channel payload
@@ -131,11 +131,11 @@ def delete_element_by_key(payload: list[dict], key: str, value):
             pass
 
 
-def merge_dicts(dict1: dict, dict2: dict):
+def merge_dicts(dict1: "Mapping", dict2: "Mapping") -> "Any":
     """
     Recursively merge two dictionaries.
     """
-    result = dict1.copy()
+    result = dict(dict1)
     for key, value in dict2.items():
         if (type(value) is dict) and (key in result):
             result_value = result[key]
@@ -157,14 +157,11 @@ def update_dict_strict(dst_dict: dict, src_dict: dict):
         if key in dst_dict:
             dst_value = dst_dict[key]
             dst_type = type(dst_value)
-            if dst_type is dict:
-                if type(value) is dict:
+            if dst_type is type(value):
+                if dst_type is dict:
                     update_dict_strict(dst_value, value)
-            elif dst_type is list:
-                if type(value) is list:
-                    dst_dict[key] = value  # lists ?!
-            else:
-                dst_dict[key] = value
+                else:
+                    dst_dict[key] = value
 
 
 def update_dict_strict_by_key[_T: "MerossPayloadType"](

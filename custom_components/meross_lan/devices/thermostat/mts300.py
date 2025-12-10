@@ -254,19 +254,24 @@ class Mts300Climate(MtsThermostatClimate):
     async def async_set_temperature(self, **kwargs):
         format_temp = lambda t: round(t * self.device_scale)
 
-        mode = self.HVAC_MODE_TO_MODE_MAP.get(kwargs.get(self.ATTR_HVAC_MODE), self._mts_mode)
+        try:
+            mode = self.HVAC_MODE_TO_MODE_MAP[kwargs[self.ATTR_HVAC_MODE]]
+        except KeyError:
+            mode = self._mts_mode
         target_temp = kwargs.get(self.ATTR_TEMPERATURE)
         target_temp_low = kwargs.get(self.ATTR_TARGET_TEMP_LOW)
         target_temp_high = kwargs.get(self.ATTR_TARGET_TEMP_HIGH)
 
         # Make sure the combination of arguments passed is sane
         if target_temp and mode == MtsThermostatClimate.HVACMode.HEAT_COOL:
-            raise ValueError("set_temperature cannot accept a single temperature parameter in 'heat_cool' mode")
+            raise ValueError(
+                "set_temperature cannot accept a single temperature parameter in 'heat_cool' mode"
+            )
 
         modeC_args = {
             "mode": mode,
             "work": mc.MTS300_WORK_MANUAL,
-            "targetTemp": {}
+            "targetTemp": {},
         }
 
         if mode == mc.MTS300_MODE_HEAT:
@@ -306,7 +311,13 @@ class Mts300Climate(MtsThermostatClimate):
     @override
     async def async_request_onoff(self, onoff: int, /):
         await self._async_request_modeC(
-            {"mode": self._mts_mode if onoff else mc.MTS300_MODE_OFF}
+            {
+                "mode": (
+                    (self._mts_mode or mc.MTS300_MODE_AUTO)
+                    if onoff
+                    else mc.MTS300_MODE_OFF
+                )
+            }
         )
 
     @override
@@ -314,7 +325,7 @@ class Mts300Climate(MtsThermostatClimate):
         return self._mts_onoff and self._mts_work == mc.MTS300_WORK_SCHEDULE
 
     # interface: self
-    async def _async_request_modeC(self, payload: "MerossPayloadType", /):
+    async def _async_request_modeC(self, payload: dict, /):
         ns = self.ns
         payload |= {"channel": self.channel}
         if response := await self.manager.async_request_ack(
@@ -326,7 +337,7 @@ class Mts300Climate(MtsThermostatClimate):
                 payload = response[mc.KEY_PAYLOAD][ns.key][0]
             except (KeyError, IndexError):
                 # optimistic update
-                payload = merge_dicts(self._mts_payload, payload)  # type: ignore
+                payload = merge_dicts(self._mts_payload, payload)
             self._parse_modeC(payload)  # type: ignore
 
     # message handlers
@@ -364,7 +375,7 @@ class Mts300Climate(MtsThermostatClimate):
             match mode := payload["mode"]:
                 case mc.MTS300_MODE_OFF:
                     self._mts_onoff = 0
-                    # don't set _mts_mode so we remembere last one
+                    # don't set _mts_mode so we remember last one
                     self.hvac_mode = MtsThermostatClimate.HVACMode.OFF
                     self.hvac_action = MtsThermostatClimate.HVACAction.OFF
                     self.target_temperature = None

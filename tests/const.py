@@ -1,6 +1,7 @@
 """Constants for integration_blueprint tests."""
 
 from typing import TYPE_CHECKING
+
 from custom_components.meross_lan import const as mlc
 from custom_components.meross_lan.merossclient import cloudapi
 from custom_components.meross_lan.merossclient.protocol import const as mc

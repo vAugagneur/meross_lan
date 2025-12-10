@@ -578,6 +578,9 @@ class MerossEmulator:
                     update_dict_strict(p_state, p_payload)
 
                 if self.mqtt_connected and ns.has_push:
+                    # TODO: generalize to every namespace update (also in mixins)
+                    # by implementing some interception of update_dict_strict and
+                    # update_dict_strict_by_key. Then, only push if the state changed
                     self.mqtt_publish_push(namespace, {key_namespace: p_state})
 
                 return mc.METHOD_SETACK, {}
@@ -772,7 +775,7 @@ class MerossEmulator:
         )
         self.update_epoch()
 
-    def get_namespace_state(self, ns: "Namespace", channel, /) -> dict:
+    def get_namespace_state(self, ns: "Namespace", channel, /):
         return get_element_by_key(
             self.namespaces[ns.name][ns.key], ns.key_channel, channel
         )
