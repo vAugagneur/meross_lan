@@ -205,13 +205,6 @@ async def test_entities(
                         not expected_entities
                     ), f"{device_name} does not generate {expected_entities}"
 
-                    # This could be safely removed once we finish off immutability for PayloadType
-                    assert (
-                        not mn.PayloadType.LIST.value
-                        and not mn.PayloadType.DICT.value
-                        and (len(mn.PayloadType.LIST_C.value) == 1)
-                    ), f"device({descriptor.type}-{descriptor.uuid}) corrupts const data (namespaces)"
-
                 except BaseException as e:
                     e.args = (*e.args, EntityComponentTest.entity_id)
                     raise e

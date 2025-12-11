@@ -888,12 +888,6 @@ class Device(BaseDevice, ConfigEntryManager):
         # is invalidated and this shortens the eventual polling loop
         if self._profile:
             self._profile.unlink(self)
-        """REMOVE
-        if self._http:
-            # to be called before stopping polling so that it breaks http timeouts
-            await self._http.async_terminate()
-            self._http = None
-        """
         await self.async_poll_stop()
         await super().async_shutdown()
         self.namespace_handlers = None  # type: ignore
