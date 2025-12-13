@@ -60,3 +60,12 @@ class HubIdPayload(TypedDict):
 
 class HubSubIdPayload(ChannelPayload):
     subId: str
+
+
+class HistoryData(TypedDict):
+    """
+    A common struct usually appearing in a list of historical data points (LatestX, ConsumptionH).
+    """
+
+    value: int
+    timestamp: int

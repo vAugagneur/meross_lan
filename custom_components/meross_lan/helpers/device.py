@@ -340,7 +340,7 @@ class Device(BaseDevice, ConfigEntryManager):
             "ElectricityXNamespaceHandler",
         ),
         mn.Appliance_Control_ConsumptionH.name: (
-            ".sensor",
+            ".devices.mss",
             "ConsumptionHNamespaceHandler",
         ),
         mn.Appliance_Control_ConsumptionX.name: (".devices.mss", "ConsumptionXSensor"),

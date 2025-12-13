@@ -3,7 +3,7 @@ A collection of typing definitions for payloads
 in Appliance.Control.Sensor.*
 """
 
-from . import Any, ChannelPayload, TypedDict, _MerossPayloadType
+from . import Any, ChannelPayload, HistoryData, _MerossPayloadType
 
 
 class SensorXRequest_C(ChannelPayload):
@@ -30,13 +30,8 @@ class LatestXRequest_C(SensorXRequest_C):
     pass
 
 
-class LatestXData(TypedDict):
-    value: int
-    timestamp: int
-
-
 class LatestXResponse_C(SensorXResponse_C):
-    data: dict[str, list[LatestXData]]
+    data: dict[str, list[HistoryData]]
 
 
 class LatestXResponse(_MerossPayloadType):

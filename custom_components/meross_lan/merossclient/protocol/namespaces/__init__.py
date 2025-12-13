@@ -115,6 +115,8 @@ class PayloadType(enum.Enum):
     This is used as default unless some heuristic (in __init__) states something different."""
     DICT_C = _immutabledict({mc.KEY_CHANNEL: 0})
     """Command GET with channel index in dict returns the state requested."""
+    DICT_C65535 = _immutabledict({mc.KEY_CHANNEL: 65535})
+    """Command GET with channel 65535 in dict returns all the channels (refoss devices ?)."""
     LIST = _immutablelist([])
     """Command GET with an empty list returns all the (channels) state."""
     LIST_C = _immutablelist([DICT_C])
@@ -389,6 +391,7 @@ IS_SENSOR: "Namespace.Args" = {"is_sensor": True}
 P_NONE: "Namespace.Args" = {"payload": PayloadType.NONE}
 P_DICT: "Namespace.Args" = {"payload": PayloadType.DICT}
 P_DICT_C: "Namespace.Args" = {"payload": PayloadType.DICT_C}
+P_DICT_C65535: "Namespace.Args" = {"payload": PayloadType.DICT_C65535}
 P_LIST: "Namespace.Args" = {"payload": PayloadType.LIST}
 P_LIST_C: "Namespace.Args" = {"payload": PayloadType.LIST_C}
 P_LIST_SX: "Namespace.Args" = {"payload": PayloadType.LIST_SX}
@@ -462,7 +465,9 @@ Appliance_Control_ConsumptionConfig = ns(
     "Appliance.Control.ConsumptionConfig", mc.KEY_CONFIG, ARGS_GET
 )
 Appliance_Control_ConsumptionH = ns(
-    "Appliance.Control.ConsumptionH", mc.KEY_CONSUMPTIONH, ARGS_GET | P_LIST_C
+    "Appliance.Control.ConsumptionH",
+    mc.KEY_CONSUMPTIONH,
+    ARGS_GET | P_LIST_C | G_EXPERIMENTAL,
 )
 Appliance_Control_ConsumptionX = ns(
     "Appliance.Control.ConsumptionX", mc.KEY_CONSUMPTIONX, ARGS_GETPUSH | P_LIST
@@ -482,7 +487,7 @@ Appliance_Control_Electricity = ns(
 Appliance_Control_ElectricityX = ns(
     "Appliance.Control.ElectricityX",
     mc.KEY_ELECTRICITY,
-    ARGS_GETPUSH | P_LIST_C | G_EXPERIMENTAL,
+    ARGS_GETPUSH | P_DICT_C65535 | G_EXPERIMENTAL,
 )
 Appliance_Control_Fan = ns("Appliance.Control.Fan", mc.KEY_FAN, ARGS_GETSET | P_LIST_C)
 Appliance_Control_Fan_BtnConfig = ns(

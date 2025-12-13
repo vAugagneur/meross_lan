@@ -111,6 +111,7 @@ class NamespaceHandler:
         parsers: dict[object, Callable[[dict], None]]
         lastpush: dict | None
         polling_strategy: PollingStrategyFunc | None
+        polling_request: mt.MerossRequestType
         polling_request_channels: list[dict[str, Any]]
 
     __slots__ = (
@@ -194,17 +195,9 @@ class NamespaceHandler:
         """
         ns = self.ns
         _request_payload_type = request_payload_type or ns.request_payload_type
-        if _request_payload_type is mn.PayloadType.LIST_C:
-            self.polling_request = (
-                ns.name,
-                mc.METHOD_GET,
-                (
-                    {ns.key: {mc.KEY_CHANNEL: 65535}}
-                    if self.device.descriptor.is_refoss and (not request_payload_type)
-                    else {ns.key: self.polling_request_channels}
-                ),
-            )
-        elif _request_payload_type is mn.PayloadType.LIST_SX:
+        if (_request_payload_type is mn.PayloadType.LIST_C) or (
+            _request_payload_type is mn.PayloadType.LIST_SX
+        ):
             self.polling_request = (
                 ns.name,
                 mc.METHOD_GET,
@@ -543,6 +536,29 @@ class NamespaceHandler:
 
         return self.parsers[channel]
 
+    async def async_request_get_channel(self, channel: object, /):
+        """
+        Helper to execute a straigth query to get a single channel out of a set.
+        This is rather generic and adapts the query format to the current polling grammar
+        which, in some cases, could differ from what's been set in ns definition
+        (see polling_request_configure). Also, it shouldnt be used for namespaces that
+        don't support GET.
+        """
+        ns = self.ns
+        payload_type = self.polling_request[2][ns.key]
+        if isinstance(payload_type, list):
+            return await self.device.async_request(
+                ns.name,
+                mc.METHOD_GET,
+                {ns.key: [{ns.key_channel: channel}]},
+            )
+        assert isinstance(payload_type, dict)
+        return await self.device.async_request(
+            ns.name,
+            mc.METHOD_GET,
+            {ns.key: {ns.key_channel: channel}},
+        )
+
     # Polling Strategies:
     # These are configured at initialization time by setting the 'polling_strategy' attribute
     # and invoked by the polling cycle.
@@ -729,14 +745,21 @@ class NamespaceHandler:
                     )
                 ):
                     detected_request_payload_type = mn.PayloadType.LIST_C
-                if _check_response(
-                    await async_request_func(ns_name, mc.METHOD_GET, {ns_key: []})
+
+                # check ordered from more to less 'data heavy' payloads
+                # so that the last one working (less data) is the fallback
+                for _payload_type in (
+                    mn.PayloadType.DICT_C65535,
+                    mn.PayloadType.DICT_C,
+                    mn.PayloadType.LIST,
+                    mn.PayloadType.DICT,
                 ):
-                    detected_request_payload_type = mn.PayloadType.LIST
-                if _check_response(
-                    await async_request_func(ns_name, mc.METHOD_GET, {ns_key: {}})
-                ):
-                    detected_request_payload_type = mn.PayloadType.DICT
+                    if _check_response(
+                        await async_request_func(
+                            ns_name, mc.METHOD_GET, {ns_key: _payload_type.value}
+                        )
+                    ):
+                        detected_request_payload_type = _payload_type
 
                 if detected_request_payload_type:
                     # this will override the request_payload format from its default
