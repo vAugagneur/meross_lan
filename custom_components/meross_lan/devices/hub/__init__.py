@@ -1068,6 +1068,12 @@ class GS559SubDevice(SubDevice):
         if mc.KEY_INTERCONN in p_smokealarm:
             self.sensor_interConn.update_native_value(p_smokealarm[mc.KEY_INTERCONN])
 
+    def _parse_togglex(self, p_togglex: dict):
+        # avoid the base class creating a toggle entity
+        # since we're pretty sure gs559 doesn't have any funcionality here
+        # (https://github.com/krahabb/meross_lan/discussions/6#discussioncomment-15234566)
+        pass
+
     async def _async_button_mute_press(self):
         ns = mn_h.Appliance_Hub_Sensor_Smoke
         try:
