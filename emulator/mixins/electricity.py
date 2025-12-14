@@ -201,9 +201,6 @@ class ConsumptionHMixin(MerossEmulator if TYPE_CHECKING else object):
         ]
         self.consumptionh = self.payload_comsuptionh[mc.KEY_CONSUMPTIONH]
 
-    def _GET_Appliance_Control_ConsumptionH(self, header, payload):
-        return mc.METHOD_GETACK, self.payload_comsuptionh
-
 
 class ConsumptionXMixin(MerossEmulator if TYPE_CHECKING else object):
     # this is a static default but we're likely using

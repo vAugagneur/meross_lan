@@ -109,12 +109,13 @@ def get_element_by_key_safe[_T: dict](payload: list[_T], key: str, value) -> _T 
     the key value. Usually looking for the matching channel payload
     inside list payloads
     """
-    try:
-        for p in payload:
-            if p.get(key) == value:
+    for p in payload:
+        try:
+            if p[key] == value:
                 return p
-    except Exception:
-        return None
+        except KeyError:
+            continue
+    return None
 
 
 def delete_element_by_key(payload: list[dict], key: str, value):
@@ -146,7 +147,7 @@ def merge_dicts(dict1: "Mapping", dict2: "Mapping") -> "Any":
     return result
 
 
-def update_dict_strict(dst_dict: dict, src_dict: dict):
+def update_dict_strict(dst_dict: dict, src_dict: "Mapping"):
     """Updates (merge) the dst_dict with values from src_dict checking
     their existence in dst_dict before applying. Used in emulators to update
     current state when receiving a SET payload. This is needed for testing so
@@ -165,7 +166,7 @@ def update_dict_strict(dst_dict: dict, src_dict: dict):
 
 
 def update_dict_strict_by_key[_T: "MerossPayloadType"](
-    dst_lst: "Iterable[_T]", src_dict: _T, key: str = mc.KEY_CHANNEL
+    dst_lst: "Iterable[_T]", src_dict: "Mapping", key: str = mc.KEY_CHANNEL
 ) -> _T:
     """
     Much like get_element_by_key scans the dst list looking for the first item matching
@@ -181,7 +182,7 @@ def update_dict_strict_by_key[_T: "MerossPayloadType"](
     raise KeyError(f"No match for key '{key}' on value:'{str(key_value)}' in {dst_lst}")
 
 
-def extract_dict_payloads(payload):
+def extract_dict_payloads[_T](payload: _T | list[_T]) -> "Iterable[_T]":
     """
     Helper generator to manage payloads which might carry list of payloads:
     payload = { "channel": 0, "onoff": 1}
