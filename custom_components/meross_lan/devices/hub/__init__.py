@@ -167,7 +167,6 @@ class HubSubIdDeviceCfgMixin(MLEntity if TYPE_CHECKING else object):
 
     if TYPE_CHECKING:
         manager: "SubDevice"
-        key_group: str
 
     ns = mn_h.Appliance_Config_DeviceCfg
 
@@ -1428,7 +1427,7 @@ class MST100SubDevice(SubDevice):
         self.switch_water_onoff = None  # type: ignore
 
     def _parse_deviceCfg(self, p_devicecfg: "DeviceCfg"):
-        self.number_duration.update_device_value(p_devicecfg["mstCfg"]["dura"])
+        self.number_duration._parse(p_devicecfg)
 
     def _parse_water(self, p_water: "Water"):
         self.switch_water_onoff.update_onoff(p_water[mc.KEY_ONOFF] == 1)

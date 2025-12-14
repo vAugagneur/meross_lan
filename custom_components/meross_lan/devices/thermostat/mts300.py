@@ -4,8 +4,11 @@ from homeassistant.components.climate import const as hacc
 
 from ...calendar import MtsSchedule
 from ...helpers import reverse_lookup
+from ...helpers.entity import MEGroupListChannelMixin
+from ...helpers.namespaces import mc, mn
 from ...merossclient import merge_dicts
 from ...number import MLConfigNumber
+from ...select import MLConfigSelect
 from ...sensor import MLEnumSensor, MLHumiditySensor
 from ...switch import MLEmulatedSwitch
 from .mtsthermostat import (
@@ -33,24 +36,40 @@ if TYPE_CHECKING:
         "Appliance.Control.Thermostat.ScheduleB": {},
         "Appliance.Control.Thermostat.System": {},
     }
-    TODO:
-    -Appliance.Config.Sensor.Association likely carries info about which sensor (internal/external)
-    is used as observed temp
-    -Appliance.Control.Thermostat.Calibration
-    {"calibration":[{"channel":0,"value":150,"min":-450,"max":450,"humiValue":-60}]}
     """
+
+
+class MtsSensorAssociation(MEGroupListChannelMixin, MLConfigSelect):
+    """
+    Configures internal/external sensor association for temperature readings in mts300.
+    """
+
+    ns = mn.Appliance_Config_Sensor_Association
+    key_group = mc.KEY_TEMP
+    key_value = ns.slug_end
+
+    """ TODO: get a description of possible options and implement either translations or constant symbols
+    so that we can change also the entity category to CONFIG
+    """
+    OPTIONS_MAP = {
+        2: "Internal sensor",  # almost sure
+    }
+
+    manager: "Device"
+
+    entity_category = MLConfigSelect.EntityCategory.DIAGNOSTIC
+
+    def __init__(self, climate: "MtsThermostatClimate", /):
+        super().__init__(
+            climate.manager,
+            climate.channel,
+            f"{self.ns.slug}__{self.key_group}_{self.key_value}",
+            name="Sensor Association",
+        )
 
 
 class Mts300Climate(MtsThermostatClimate):
     """Climate entity for MTS300 devices"""
-
-    """
-    class FanModes(StrEnum):
-        AUTO = hacc.FAN_AUTO
-        LOW = hacc.FAN_LOW
-        MEDIUM = hacc.FAN_MEDIUM
-        HIGH = hacc.FAN_HIGH
-    """
 
     if TYPE_CHECKING:
         # overrides
@@ -67,6 +86,7 @@ class Mts300Climate(MtsThermostatClimate):
         sensor_current_humidity: MLHumiditySensor
         number_fan_hold: MLConfigNumber
         switch_fan_hold: MLEmulatedSwitch
+        select_temp_association: MtsSensorAssociation
 
     # MtsClimate class attributes
     ns = mn_t.Appliance_Control_Thermostat_ModeC
@@ -194,6 +214,7 @@ class Mts300Climate(MtsThermostatClimate):
         "sensor_current_humidity",
         "number_fan_hold",
         "switch_fan_hold",
+        "select_temp_association",
     ) + tuple(f"sensor_{_key}" for _key in STATUS_SENSOR_DEF_MAP)
 
     def __init__(self, manager: "Device", channel=0, /):
@@ -234,9 +255,6 @@ class Mts300Climate(MtsThermostatClimate):
         await super().async_shutdown()
         self.switch_fan_hold = None  # type:ignore
         self.number_fan_hold = None  # type:ignore
-        self.sensor_current_humidity = None  # type: ignore
-        for _key in Mts300Climate.STATUS_SENSOR_DEF_MAP:
-            setattr(self, f"sensor_{_key}", None)
 
     # interface: MtsClimate
     def set_unavailable(self):
@@ -348,7 +366,17 @@ class Mts300Climate(MtsThermostatClimate):
         try:
             self._mts_work = payload["work"]
             self.preset_mode = self.MTS_MODE_TO_PRESET_MAP.get(self._mts_work)
-            self._update_current_temperature(payload["currentTemp"])
+            try:
+                # get current input sensor: 2 should be internal sensor though
+                temp_association = self.select_temp_association.device_value
+            except AttributeError:
+                temp_association = 0
+            # currentTemp is always the controlled temperature input and might come from either
+            # internal or external sensor based on temp_association. sensorTemp is internal sensor always.
+            # It looks like currentTemp is rounded up to 1°C while sensorTemp should be at least 0.5°C resolution.
+            # and this should explain https://github.com/krahabb/meross_lan/issues/592
+            self._update_current_temperature(payload["currentTemp"] if temp_association != 2 else payload["sensorTemp"])
+
             targetTemp = payload["targetTemp"]
             self.target_temperature_high = targetTemp["cold"] / self.device_scale
             self.target_temperature_low = targetTemp["heat"] / self.device_scale
@@ -419,6 +447,13 @@ class Mts300Climate(MtsThermostatClimate):
             self.flush_state()
         except Exception as e:
             self.log_exception(self.WARNING, e, "parsing thermostat ModeC", timeout=300)
+
+    def _parse_association(self, payload: dict, /):
+        try:
+            self.select_temp_association._parse(payload)
+        except AttributeError:
+            self.select_temp_association = MtsSensorAssociation(self)
+            self.select_temp_association._parse(payload)
 
     async def _async_request_value_number_fan_hold(self, device_value, /):
         # this method (ovverriding MLConfig.Number.async_request_value) should

@@ -53,11 +53,9 @@ class ThermostatMixin(MerossEmulator if TYPE_CHECKING else object):
     }
 
     if TYPE_CHECKING:
-        CURRENT_TEMPERATURE_MEAN: ClassVar[float] = 18
-        CURRENT_TEMPERATURE_DELTA: ClassVar[float] = 5  # amplitude (half)
-        CURRENT_TEMPERATURE_PERIOD: ClassVar[float] = (
-            300  # period of full cycle (seconds)
-        )
+        CURRENT_TEMPERATURE_MEAN: ClassVar[float]
+        CURRENT_TEMPERATURE_DELTA: ClassVar[float]
+        CURRENT_TEMPERATURE_PERIOD: ClassVar[float]
 
         device_scale: int
         p_mode: mt_t.Mode_C | mt_t.ModeB_C | mt_t.ModeC_C
@@ -358,6 +356,11 @@ class ThermostatMixin(MerossEmulator if TYPE_CHECKING else object):
             p_modeb[mc.KEY_STATE] = mc.MTS960_STATE_OFF
 
     def _update_ModeC(self, p_modec: "mt_t.ModeC_C"):
+        current_temp = p_modec["currentTemp"]
+        # It looks like currentTemp is rounded up to 1°C while sensorTemp should be at least 0.5°C resolution.
+        p_modec["currentTemp"] = round(current_temp / 100) * 100
+        # Assume sensor association is internal sensor for now
+        p_modec["sensorTemp"] = round(current_temp / 50) * 50
         p_fan = p_modec["fan"]
         fan_mode = p_fan["fMode"]
         fan_speed = p_fan["speed"]
@@ -373,8 +376,7 @@ class ThermostatMixin(MerossEmulator if TYPE_CHECKING else object):
                 p_more["hdStatus"] = 0
             case mc.MTS300_MODE_HEAT:
                 delta_t = round(
-                    (p_modec["targetTemp"]["heat"] - p_modec["currentTemp"])
-                    / self.device_scale
+                    (p_modec["targetTemp"]["heat"] - current_temp) / self.device_scale
                 )
                 p_more["hStatus"] = (
                     0 if delta_t <= 0 else 3 if delta_t >= 3 else delta_t
@@ -384,18 +386,17 @@ class ThermostatMixin(MerossEmulator if TYPE_CHECKING else object):
             case mc.MTS300_MODE_COOL:
                 p_more["hStatus"] = 0
                 delta_t = round(
-                    (p_modec["currentTemp"] - p_modec["targetTemp"]["cold"])
-                    / self.device_scale
+                    (current_temp - p_modec["targetTemp"]["cold"]) / self.device_scale
                 )
                 p_more["cStatus"] = (
                     0 if delta_t <= 0 else 2 if delta_t >= 2 else delta_t
                 )
                 p_more["fStatus"] = fan_speed or p_more["cStatus"]
             case mc.MTS300_MODE_AUTO:
-                currenttemp = p_modec["currentTemp"]
+
                 p_targettemp = p_modec["targetTemp"]
                 delta_t = round(
-                    (p_targettemp["heat"] - currenttemp) / self.device_scale
+                    (p_targettemp["heat"] - current_temp) / self.device_scale
                 )
                 if delta_t >= 0:
                     p_more["hStatus"] = 3 if delta_t >= 3 else delta_t
@@ -403,7 +404,7 @@ class ThermostatMixin(MerossEmulator if TYPE_CHECKING else object):
                     p_more["fStatus"] = fan_speed or p_more["hStatus"]
                 else:
                     delta_t = round(
-                        (currenttemp - p_targettemp["cold"]) / self.device_scale
+                        (current_temp - p_targettemp["cold"]) / self.device_scale
                     )
                     p_more["hStatus"] = 0
                     p_more["cStatus"] = (
@@ -416,9 +417,11 @@ class ThermostatMixin(MerossEmulator if TYPE_CHECKING else object):
             mn_t.Appliance_Control_Thermostat_Calibration, 0
         )
         _current_temp = round(
-            self.CURRENT_TEMPERATURE_MEAN
-            + self.CURRENT_TEMPERATURE_DELTA
-            * math.sin(self.epoch * 2 * math.pi / self.CURRENT_TEMPERATURE_PERIOD)
+            (
+                self.CURRENT_TEMPERATURE_MEAN
+                + self.CURRENT_TEMPERATURE_DELTA
+                * math.sin(self.epoch * 2 * math.pi / self.CURRENT_TEMPERATURE_PERIOD)
+            )
             * self.device_scale
         )
         _current_temp = clamp(

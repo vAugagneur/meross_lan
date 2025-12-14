@@ -70,10 +70,15 @@ class MLConfigSelect(MLSelect):
         OPTIONS_MAP: ClassVar[dict[Any, str]]
         options_map: dict[Any, str]
 
+        device_value: Any
+
     # configure initial options(map) through a class default
     OPTIONS_MAP = {}
 
-    __slots__ = ("options_map",)
+    __slots__ = (
+        "options_map",
+        "device_value",
+    )
 
     def __init__(
         self,
@@ -83,28 +88,40 @@ class MLConfigSelect(MLSelect):
         **kwargs: "Unpack[MLSelect.Args]",
     ):
         self.current_option = None
-        self.options_map = dict(
-            self.OPTIONS_MAP
-        )  # make a copy to not pollute when auto-updating
+        self.options_map = self.OPTIONS_MAP
         self.options = list(self.options_map.values())
+        self.device_value = None
         super().__init__(manager, channel, entitykey, None, **kwargs)
 
-    def update_device_value(self, device_value):
-        try:
-            self.update_option(self.options_map[device_value])
-        except KeyError:
-            self.options_map[device_value] = option = str(device_value)
-            self.options.append(option)
-            self.update_option(option)
+    def set_unavailable(self):
+        self.device_value = None
+        return super().set_unavailable()
+
+    def update_device_value(self, device_value, /):
+        if self.device_value != device_value:
+            try:
+                self.update_option(self.options_map[device_value])
+            except KeyError:
+                if self.options_map is self.OPTIONS_MAP:
+                    # first time we see a new value - create an instance map
+                    self.options_map = dict(self.OPTIONS_MAP)
+                self.options_map[device_value] = option = str(device_value)
+                self.options.append(option)
+                self.update_option(option)
+
+            self.device_value = device_value
+            return True
 
     # interface: select.SelectEntity
     async def async_select_option(self, option: str):
-        if await self.async_request_value(reverse_lookup(self.options_map, option)):
-            self.update_option(option)
+        device_value = reverse_lookup(self.options_map, option)
+        if await self.async_request_value(device_value):
+            self.update_device_value(device_value)
 
 
 class MtsTrackedSensor(me.MEAlwaysAvailableMixin, MLSelect):
     """
+    TODO: move to climate.py ?
     A select entity used to select among all temperature sensors in HA
     an entity to track so that the thermostat regulates T against
     that other sensor. The idea is to track changes in

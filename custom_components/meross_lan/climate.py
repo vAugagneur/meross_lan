@@ -306,10 +306,10 @@ class MtsSetPointNumber(MLConfigNumber):
             # make sure the climate state is consistent and all the correct roundings
             # are processed when changing any of the presets
             # not sure about mts200 replies..but we're optimist
-            ns_slug = self.ns.slug
+            ns_slug_end = self.ns.slug_end
             payload = response[mc.KEY_PAYLOAD]
-            if ns_slug in payload:
+            if ns_slug_end in payload:
                 # by design ns_slug is either "temperature" (mts100) or "mode" (mts200)
-                getattr(self.climate, f"_parse_{ns_slug}")(payload[ns_slug][0])
+                getattr(self.climate, f"_parse_{ns_slug_end}")(payload[ns_slug_end][0])
 
         return response

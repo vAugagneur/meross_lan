@@ -304,7 +304,7 @@ class NamespaceHandler:
         ns = self.ns
         channel = getattr(parser, ns.key_channel)
         assert channel not in self.parsers, "parser already registered"
-        self.parsers[channel] = getattr(parser, f"_parse_{ns.slug}", parser._parse)
+        self.parsers[channel] = getattr(parser, f"_parse_{ns.slug_end}", parser._parse)
         if not parser.namespace_handlers:
             parser.namespace_handlers = set()
         parser.namespace_handlers.add(self)
@@ -412,10 +412,10 @@ class NamespaceHandler:
                 # we add the last split of the namespace to the extracted payload key
                 if type(_payload) is dict:
                     self._parse_undefined_dict(
-                        f"{ns.slug}_{_key}", _payload, _payload.get(ns.key_channel)
+                        f"{ns.slug_end}_{_key}", _payload, _payload.get(ns.key_channel)
                     )
                 else:
-                    _key = f"{ns.slug}_{_key}"
+                    _key = f"{ns.slug_end}_{_key}"
                     for __payload in _payload:
                         # not having a "channel" in the list payloads is unexpected so far
                         self._parse_undefined_dict(
@@ -984,6 +984,13 @@ POLLING_STRATEGY_CONF: dict[mn.Namespace, "NamespaceConfigType"] = {
         mlc.PARAM_CLOUDMQTT_UPDATE_PERIOD,
         330,
         0,
+        NamespaceHandler.async_poll_smart,
+    ),
+    mn.Appliance_Config_Sensor_Association: (
+        mlc.PARAM_CONFIG_UPDATE_PERIOD,
+        mlc.PARAM_CLOUDMQTT_UPDATE_PERIOD,
+        mlc.PARAM_HEADER_SIZE,
+        30,
         NamespaceHandler.async_poll_smart,
     ),
     mn.Appliance_Config_OverTemp: (

@@ -168,8 +168,6 @@ class Namespace:
         DEFAULT_PUSH_PAYLOAD: Final
         name: Final[str]
         """The namespace name"""
-        slug: Final[str]
-        """The namespace 'slug' i.e. the last split of name"""
         key: Final[str]
         """The root key of the payload"""
         key_channel: Final[str]
@@ -195,7 +193,6 @@ class Namespace:
 
     __slots__ = (
         "name",
-        "slug",
         "key",
         "key_channel",
         "has_get",
@@ -219,19 +216,13 @@ class Namespace:
         kwargs: "Args" = {},
     ) -> None:
         self.name = name
-        name_split = name.split(".")
-        slug = name_split[-1]
         # When namespace 'key' is not provided we'll infer it
         # by camelCasing the last split of the namespace
         # with special care for also the last char which looks
         # lowercase when it's a X (i.e. ToggleX -> togglex).
         # Recently (2025) it appears the namespace 'key' is likely to be the 2nd
         # split of the namespace though (i.e. Appliance.Config.DeviceCfg -> config)
-        if slug[-1] == "X":
-            self.slug = f"{slug[0].lower()}{slug[1:-1]}x"
-        else:
-            self.slug = f"{slug[0].lower()}{slug[1:]}"
-        self.key = key or self.slug
+        self.key = key or self.slug_end
 
         map = kwargs.get("map", NAMESPACES)
         payload = kwargs.get("payload")
@@ -261,7 +252,7 @@ class Namespace:
             # apply heuristics to incoming new namespaces.
             # Forwarding a payload arg to the constructor is just an 'hint'
             # used by our factory functions ('_ns_xxx') to skip unneded name parsing
-            match name_split:
+            match name.split("."):
                 case (_, "Hub", *_):
                     # This is not always true: some 'hub' namespaces don't get indexed by 'id' (nor by 'subId')
                     # Examples are ExtraInfo or SubdeviceList. In our definitions we'll solve the problem
@@ -305,19 +296,23 @@ class Namespace:
             self.is_hub_namespace = False
             map[name] = self  # type: ignore
 
-    r"""
     @cached_property
-    def is_hub_id(self):
-        return bool(re.match(r"Appliance\.Hub\.(.*)", self.name))
+    def slug(self) -> str:
+        return self.name.lower().replace(".", "_")
 
     @cached_property
-    def is_sensor(self):
-        return bool(re.match(r"Appliance\.Control\.Sensor\.(.*)", self.name))
-
-    @cached_property
-    def is_thermostat(self):
-        return bool(re.match(r"Appliance\.Control\.Thermostat\.(.*)", self.name))
-    """
+    def slug_end(self) -> str:
+        slug_end = self.name.split(".")[-1]
+        # When namespace 'key' is not provided we'll infer it
+        # by camelCasing the last split of the namespace
+        # with special care for also the last char which looks
+        # lowercase when it's a X (i.e. ToggleX -> togglex).
+        # Recently (2025) it appears the namespace 'key' is likely to be the 2nd
+        # split of the namespace though (i.e. Appliance.Config.DeviceCfg -> config)
+        if slug_end[-1] == "X":
+            return f"{slug_end[0].lower()}{slug_end[1:-1]}x"
+        else:
+            return f"{slug_end[0].lower()}{slug_end[1:]}"
 
     @cached_property
     def payload_get(self) -> dict[str, dict | list]:
@@ -531,7 +526,9 @@ Appliance_Control_Sensor_Association = ns(
     "Appliance.Control.Sensor.Association",
     mc.KEY_CONTROL,
     ARGS_GET | P_LIST | IS_SENSOR,
-)  # mts300 works
+)  # mts300 works: though it seems this ns just returns (in a GET) the list of keys it supports (a kind of grammar).
+# We could setup an heuristic handler alone which queries this ns once and then setups some 'config entities'
+# working on Appliance.Config.Sensor.Association (which looks like the effective configuration).
 Appliance_Control_Sensor_History = ns(
     "Appliance.Control.Sensor.History", mc.KEY_HISTORY, ARGS_GET | P_LIST_C | IS_SENSOR
 )  # history of sensor values
