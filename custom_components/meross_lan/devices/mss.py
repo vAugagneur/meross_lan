@@ -319,7 +319,7 @@ class ElectricityXSensor(ElectricitySensor):
             MConsumeSensor,
             False,
             MLNumericSensor.DeviceClass.ENERGY,
-            MLNumericSensor.StateClass.TOTAL,
+            MLNumericSensor.StateClass.TOTAL_INCREASING,  # quick patch for #621 (will be fixed in v6.x.x)
             0,
             1,
         ),

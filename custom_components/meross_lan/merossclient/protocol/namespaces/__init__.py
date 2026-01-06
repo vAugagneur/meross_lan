@@ -463,9 +463,7 @@ Appliance_Control_ConsumptionConfig = ns(
     "Appliance.Control.ConsumptionConfig", mc.KEY_CONFIG, ARGS_GET
 )
 Appliance_Control_ConsumptionH = ns(
-    "Appliance.Control.ConsumptionH",
-    mc.KEY_CONSUMPTIONH,
-    ARGS_GET | P_LIST_C | G_EXPERIMENTAL,
+    "Appliance.Control.ConsumptionH", mc.KEY_CONSUMPTIONH, ARGS_GET | P_LIST_C
 )
 Appliance_Control_ConsumptionX = ns(
     "Appliance.Control.ConsumptionX", mc.KEY_CONSUMPTIONX, ARGS_GETPUSH | P_LIST
