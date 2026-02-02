@@ -496,7 +496,7 @@ class Device(BaseDevice, ConfigEntryManager):
         self.digest_pollers = set()
         self._lazypoll_requests = []
         NamespaceHandler(self, mn.Appliance_System_All)
-        self._polling_epoch = 0.0  # when 0 we're not in the polling callback loop
+        self._polling_epoch = time()
         self._polling_unsub = None
         self._polling_task = None
         self._queued_cloudpoll_requests = 0

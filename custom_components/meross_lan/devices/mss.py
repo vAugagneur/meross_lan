@@ -1,3 +1,4 @@
+from bisect import insort_right
 from datetime import datetime, timedelta
 from time import time
 from typing import TYPE_CHECKING, override
@@ -267,19 +268,14 @@ class ElectricityXSensor(ElectricitySensor):
             MLNumericSensor.__init__(
                 self, manager, channel, entitykey, device_class, **kwargs
             )
-            if "device_value" in kwargs:
-                # This means we're being instantiated in ElecitricityX namespace message parsing
-                # so we can trigger an update of the related ConsumptionH sensor right away
-                # exactly as in update_device_value below.
-                try:
-                    manager.async_create_task(
-                        manager.namespace_handlers[
-                            mn.Appliance_Control_ConsumptionH.name
-                        ].async_request_get_channel(channel),
-                        "ConsumptionH triggered update",
-                    )
-                except KeyError:
-                    pass
+            # TODO: in 6.x.x we should generalize this mechanism to any ns/device
+            try:
+                handler_ch: "ConsumptionHNamespaceHandler" = manager.namespace_handlers[
+                    mn.Appliance_Control_ConsumptionH.name
+                ]  # type: ignore
+                handler_ch.need_polling(channel)
+            except KeyError:
+                pass
 
         @override
         def update_device_value(self, device_value: int | float, /):
@@ -289,14 +285,15 @@ class ElectricityXSensor(ElectricitySensor):
                 # are effectively instantiated since their list cannot be inferred
                 # by any other means for these devices.
                 try:
-                    self.manager.async_create_task(
-                        self.manager.namespace_handlers[
-                            mn.Appliance_Control_ConsumptionH.name
-                        ].async_request_get_channel(self.channel),
-                        "ConsumptionH triggered update",
-                    )
+                    handler_ch: (
+                        "ConsumptionHNamespaceHandler"
+                    ) = self.manager.namespace_handlers[
+                        mn.Appliance_Control_ConsumptionH.name
+                    ]  # type: ignore
+                    handler_ch.need_polling(self.channel)
                 except KeyError:
                     pass
+                return True
 
     SENSOR_DEFS = ElectricitySensor.SENSOR_DEFS | {
         mc.KEY_VOLTAGE: (
@@ -345,15 +342,10 @@ class ElectricityXNamespaceHandler(NamespaceHandler):
     """
 
     def __init__(self, device: "Device", /):
-        NamespaceHandler.__init__(
-            self,
-            device,
-            mn.Appliance_Control_ElectricityX,
-        )
-        # Current approach is to build a sensor for any appearing channel index
-        # in digest. This in turn will not directly build the EM06 sensors
-        # but they should come when polling.
-        self.register_entity_class(ElectricityXSensor, build_from_digest=True)
+        NamespaceHandler.__init__(self, device, mn.Appliance_Control_ElectricityX)
+        self.register_entity_class(ElectricityXSensor, build_from_digest=False)
+        for channel in device.descriptor.channels:
+            ElectricityXSensor(device, channel)
 
 
 class ConsumptionHSensor(MLNumericSensor):
@@ -375,11 +367,31 @@ class ConsumptionHSensor(MLNumericSensor):
         )
         manager.register_parser_entity(self)
 
+    @property
+    def handler_ns(self) -> "ConsumptionHNamespaceHandler":
+        return self.manager.namespace_handlers[self.ns.name]  # type: ignore
+
+    async def async_added_to_hass(self):
+        self.handler_ns.channel_polling_add(self.channel)
+        return await super().async_added_to_hass()
+
+    async def async_will_remove_from_hass(self):
+        self.handler_ns.channel_polling_remove(self.channel)
+        return await super().async_will_remove_from_hass()
+
     def _parse_consumptionH(self, payload: dict):
         """
         {"channel": 1, "total": 958, "data": [{"timestamp": 1721548740, "value": 0}]}
         """
-        self.update_device_value(payload[mc.KEY_TOTAL])
+        handler = self.handler_ns
+        if self.update_device_value(payload[mc.KEY_TOTAL]):
+            # value is changing..reschedule polling sooner
+            polling_delay = handler.polling_period * 2
+        else:
+            # value is steady..postpone next polling
+            polling_delay = handler.polling_period * 6
+        if handler.channel_polling_remove(self.channel):
+            handler.channel_polling_add(self.channel, polling_delay)
 
 
 class ConsumptionHNamespaceHandler(NamespaceHandler):
@@ -398,18 +410,93 @@ class ConsumptionHNamespaceHandler(NamespaceHandler):
     em06: 6 channels (but the query works without setting any)
     """
 
+    if TYPE_CHECKING:
+        ChannelToPollType = tuple[float, object]
+        """(last_request_epoch, channel)"""
+        _channels_to_poll: list[ChannelToPollType]
+        # TODO: reconcile this member with polling_request_channels in base cls
+
+    __slots__ = ("_channels_to_poll",)
+
     def __init__(self, device: "Device"):
-        NamespaceHandler.__init__(
-            self,
-            device,
-            mn.Appliance_Control_ConsumptionH,
-        )
-        # Current approach is to build a sensor for any appearing channel index
-        # in digest. This in turns will not directly build the EM06 sensors
-        # but they should come when polling.
+        self._channels_to_poll = []
+        NamespaceHandler.__init__(self, device, mn.Appliance_Control_ConsumptionH)
         self.register_entity_class(
-            ConsumptionHSensor, initially_disabled=False, build_from_digest=True
+            ConsumptionHSensor, initially_disabled=False, build_from_digest=False
         )
+        for channel in device.descriptor.channels:
+            ConsumptionHSensor(device, channel)
+        self.polling_strategy = ConsumptionHNamespaceHandler.async_poll_probe  # type: ignore
+
+    @override
+    def polling_request_add_channel(self, channel, /):
+        # disable polling_request_channels setup since we're overriding the default
+        # polling mechanics
+        pass
+
+    def channel_polling_add(self, channel, delay: float = 0, /):
+        # assert not already present ?
+        insort_right(
+            self._channels_to_poll,
+            (self.device._polling_epoch + delay, channel),
+            key=lambda ctp: ctp[0],
+        )
+
+    def channel_polling_remove(self, channel, /):
+        channels_to_poll = self._channels_to_poll
+        for i in range(len(channels_to_poll)):
+            if channels_to_poll[i][1] == channel:
+                del channels_to_poll[i]
+                return True
+        return False
+
+    def need_polling(self, channel, /):
+        """Raise the channel polling priority in the queue."""
+        channels_to_poll = self._channels_to_poll
+        for i in range(len(channels_to_poll)):
+            if channels_to_poll[i][1] == channel:
+                if channels_to_poll[i][0] > self.device._polling_epoch:
+                    del channels_to_poll[i]
+                    insort_right(
+                        channels_to_poll,
+                        (self.device._polling_epoch, channel),
+                        key=lambda ctp: ctp[0],
+                    )
+                return
+
+    async def async_poll_probe(self):
+        # This poller is mainly used to discover the multiple_response available buffer size
+        # since em06 looks like having a way more than our default estimated 2400 (3 * 800) bytes
+        # We're then going to try a full poll and see what happens. Also, we're expecting the device
+        # to reply with just 3 channels when queried with an empty list (em06).
+        if not self._channels_to_poll:
+            return
+        self.polling_response_size = (
+            self.polling_response_base_size + 3 * self.polling_response_item_size
+        )
+        await self.device.async_request_poll(self)
+        self.polling_request_channels.append({})
+        self.polling_response_size = (
+            self.polling_response_base_size + self.polling_response_item_size
+        )
+        self.polling_strategy = ConsumptionHNamespaceHandler.async_poll_smartchunk  # type: ignore
+
+    async def async_poll_smartchunk(self):
+        """This has a huge ns response payload so we need to optimize polling.
+        We're going to just query a single channel per polling cycle."""
+        if not self._channels_to_poll:
+            return
+        _poll_epoch, channel = self._channels_to_poll[0]
+        self.polling_request_channels[0][self.ns.key_channel] = channel
+        device = self.device
+        epoch = device._polling_epoch
+        if _poll_epoch > epoch:
+            # Insert into the lazypoll_requests ordering by least recently polled
+            insort_right(
+                device._lazypoll_requests, self, key=lambda h: h.lastrequest - epoch
+            )
+        else:
+            await device.async_request_smartpoll(self)
 
 
 class ConsumptionXSensor(EntityNamespaceMixin, MLNumericSensor):
