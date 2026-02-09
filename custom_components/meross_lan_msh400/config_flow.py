@@ -758,6 +758,20 @@ class ConfigFlow(MerossFlowHandlerMixin, ce.ConfigFlow, domain=mlc.DOMAIN):
         await self.async_set_unique_id(macaddress_fmt, raise_on_progress=False)
         ConfigFlow.DHCP_DISCOVERIES[macaddress_fmt] = discovery_info
         self._set_flow_title(f"{discovery_info.hostname or host} ({macaddress})")
+        
+        # MSH400 Detection: Check if this is a MSH400 hub via hostname or model
+        hostname = (discovery_info.hostname or "").lower()
+        if "msh400" in hostname:
+            # MSH400 hubs don't support HTTP discovery, only MQTT/Cloud
+            # Abort this DHCP discovery and guide user to use Cloud Profile instead
+            api.log(
+                api.INFO,
+                "MSH400 hub detected (ip:%s mac:%s). DHCP discovery aborted - use Meross Cloud Profile configuration instead.",
+                host,
+                macaddress,
+            )
+            return self.async_abort(reason="msh400_use_cloud_profile")
+        
         self.device_config = {  # type: ignore
             mlc.CONF_HOST: host,
         }

@@ -81,7 +81,8 @@
         "abort": {
             "already_configured": "Entry already configured",
             "no_devices_found": "No devices found on the network",
-            "single_instance_allowed": "Already configured. Only a single configuration possible."
+            "single_instance_allowed": "Already configured. Only a single configuration possible.",
+            "msh400_use_cloud_profile": "MSH400 hub detected. This device requires MQTT/Cloud connection. Please configure a 'Meross Cloud Profile' instead of using IP address configuration."
         },
         "error": {
             "already_configured_device": "Device is already configured",
