@@ -1,4 +1,4 @@
-"""Constants for the Meross IoT local LAN integration."""
+"""Constants for the Meross IoT local LAN integration (MSH400 Support)."""
 
 import enum
 import logging
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from typing import Any, Mapping
 
 
-DOMAIN: Final = "meross_lan"
+DOMAIN: Final = "meross_lan_msh400"
 
 
 class DeviceType(enum.Enum):

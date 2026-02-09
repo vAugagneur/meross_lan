@@ -1,6 +1,6 @@
 {
-  "domain": "meross_lan",
-  "name": "Meross LAN",
+  "domain": "meross_lan_msh400",
+  "name": "Meross LAN (MSH400 Support)",
   "after_dependencies": [
     "mqtt",
     "dhcp",
@@ -28,12 +28,12 @@
       "registered_devices": true
     }
   ],
-  "documentation": "https://github.com/krahabb/meross_lan",
+  "documentation": "https://github.com/vAugagneur/meross_lan",
   "integration_type": "hub",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/krahabb/meross_lan/issues",
+  "issue_tracker": "https://github.com/vAugagneur/meross_lan/issues",
   "loggers": [
-    "custom_components.meross_lan"
+    "custom_components.meross_lan_msh400"
   ],
   "mqtt": [
     "/appliance/+/publish"
