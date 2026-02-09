@@ -515,6 +515,76 @@ class HubMixin(Device if TYPE_CHECKING else object):
         """
         pass
 
+    def _handle_Appliance_Hub_Sensor_TempHum(self, header: dict, payload: dict):
+        """Handle temperature/humidity sensor updates from MS100 devices.
+        Example payload:
+        {
+            'tempHum': [
+                {
+                    'id': '39000E5D6B50',
+                    'lastUpdate': 1738843200,
+                    'latestTemperature': 215,
+                    'latestHumidity': 45
+                }
+            ]
+        }
+        """
+        if mc.KEY_TEMPHUM in payload:
+            for p_temphum in payload[mc.KEY_TEMPHUM]:
+                if mc.KEY_ID in p_temphum:
+                    subdevice_id = p_temphum[mc.KEY_ID]
+                    if subdevice := self.subdevices.get(subdevice_id):
+                        if hasattr(subdevice, "_parse_tempHum"):
+                            subdevice._parse_tempHum(p_temphum)
+
+    def _handle_Appliance_Hub_Sensor_DoorWindow(self, header: dict, payload: dict):
+        """Handle door/window sensor updates from MS200 devices.
+        Example payload:
+        {
+            'doorWindow': [
+                {
+                    'id': '39000E5D69EB',
+                    'lastUpdate': 1738843200,
+                    'status': 1
+                }
+            ]
+        }
+        """
+        if mc.KEY_DOORWINDOW in payload:
+            for p_doorwindow in payload[mc.KEY_DOORWINDOW]:
+                if mc.KEY_ID in p_doorwindow:
+                    subdevice_id = p_doorwindow[mc.KEY_ID]
+                    if subdevice := self.subdevices.get(subdevice_id):
+                        if hasattr(subdevice, "_parse_doorWindow"):
+                            subdevice._parse_doorWindow(p_doorwindow)
+
+    def _handle_Appliance_Hub_Sensor_All(self, header: dict, payload: dict):
+        """Handle all sensor updates (bulk update).
+        Example payload:
+        {
+            'all': [
+                {
+                    'id': '39000E5D6B50',
+                    'type': 'ms100',
+                    'lastUpdate': 1738843200,
+                    ...
+                }
+            ]
+        }
+        """
+        if mc.KEY_ALL in payload:
+            for p_sensor in payload[mc.KEY_ALL]:
+                if mc.KEY_ID in p_sensor:
+                    subdevice_id = p_sensor[mc.KEY_ID]
+                    if subdevice := self.subdevices.get(subdevice_id):
+                        # Dispatch to appropriate parser based on sensor type
+                        if mc.KEY_TEMPHUM in p_sensor:
+                            if hasattr(subdevice, "_parse_tempHum"):
+                                subdevice._parse_tempHum(p_sensor[mc.KEY_TEMPHUM])
+                        if mc.KEY_DOORWINDOW in p_sensor:
+                            if hasattr(subdevice, "_parse_doorWindow"):
+                                subdevice._parse_doorWindow(p_sensor[mc.KEY_DOORWINDOW])
+
     def _subdevice_build(self, p_subdevice: "dict[str, Any]"):
         # parses the subdevice payload in 'digest' to look for a well-known type
         # and builds accordingly
