@@ -1,5 +1,19 @@
 # MSH400 Support - Fork Enhancement
 
+## ⚠️ Important: Integration Domain Change
+
+**This fork uses the domain `meross_lan_msh400`** instead of `meross_lan` to **avoid conflicts** with the original integration.
+
+Benefits:
+- ✅ Install both versions side-by-side
+- ✅ No need to uninstall original meross_lan
+- ✅ Clear differentiation in Home Assistant UI
+- ✅ Easy testing and comparison
+
+The integration will appear as **"Meross LAN (MSH400 Support)"** in Home Assistant.
+
+---
+
 ## Overview
 
 This fork adds **complete support for the Meross MSH400 hub** and its subdevices, including real-time PUSH message handling for MS100 and MS200 sensors.
@@ -53,16 +67,17 @@ Added 3 new message handlers (+91 lines):
 
 ```bash
 cd /config/custom_components
-rm -rf meross_lan  # Remove existing version
-git clone https://github.com/vAugagneur/meross_lan.git
-cd meross_lan
-# Only copy the custom_components/meross_lan folder to your HA
-mv custom_components/meross_lan ../
-cd ..
-rm -rf meross_lan  # Clean up
+git clone https://github.com/vAugagneur/meross_lan.git temp_meross
+# Copy the integration folder
+cp -r temp_meross/custom_components/meross_lan_msh400 ./
+rm -rf temp_meross
+# Set correct permissions
+chown -R homeassistant:homeassistant meross_lan_msh400
 ```
 
 Restart Home Assistant.
+
+**Note**: This fork uses a different domain (`meross_lan_msh400`) so it can coexist with the original `meross_lan` integration without conflicts.
 
 ## Verification
 
